@@ -1,0 +1,37 @@
+FROM    k0d3r1s/php-fpm:unstable as builder
+
+USER    root
+
+COPY    ./supervisord/supervisord.conf /etc/supervisord.conf
+COPY    ./supervisord/* /etc/supervisord/conf.d/
+
+RUN     \
+        set -eux \
+&&      apk add --update --no-cache --no-progress --upgrade -X http://dl-cdn.alpinelinux.org/alpine/edge/testing inotify-tools supervisor \
+&&      mkdir --parents /var/log/php-fpm \
+&&      rm -rf \
+            /tmp/* \
+            /var/cache/* \
+            /etc/supervisord/conf.d/supervisord.conf \
+&&      chown -R vairogs:vairogs /var/log/php-fpm
+
+FROM    scratch
+
+COPY    --from=builder / / 
+
+ENV     PHP_INI_DIR /usr/local/etc/php
+ENV     PHP_VERSION 8.3.0-dev
+ENV     container=docker
+LABEL   maintainer="support+docker@vairogs.com"
+
+SHELL   ["/bin/bash", "-o", "pipefail", "-c"]
+
+STOPSIGNAL SIGQUIT
+
+EXPOSE 9000
+
+WORKDIR /var/www/html
+
+USER    vairogs
+
+ENTRYPOINT ["supervisord"]
